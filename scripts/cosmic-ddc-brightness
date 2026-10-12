@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+
+paths_file="$HOME/.local/state/cosmic-ddc-brightness/installed-paths"
+
+if [ -r "$paths_file" ]; then
+    project_dir=
+    config_file=
+    {
+        IFS= read -r project_dir
+        IFS= read -r config_file
+    } < "$paths_file" || {
+        printf '%s\n' "Cannot read installed paths from $paths_file" >&2
+        exit 1
+    }
+else
+    data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
+    config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
+    project_dir="$data_home/cosmic-ddc-brightness"
+    config_file="$config_home/cosmic-ddc-brightness/config.toml"
+fi
+
+if [ -z "$project_dir" ] || [ -z "$config_file" ] || \
+   [ ! -d "$project_dir/cosmic_ddc_brightness" ]; then
+    printf '%s\n' "cosmic-ddc-brightness is not installed in $project_dir" >&2
+    exit 1
+fi
+
+if [ -n "${PYTHONPATH:-}" ]; then
+    export PYTHONPATH="$project_dir:$PYTHONPATH"
+else
+    export PYTHONPATH="$project_dir"
+fi
+
+exec /usr/bin/python3 -m cosmic_ddc_brightness --config "$config_file" "$@"

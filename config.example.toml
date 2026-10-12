@@ -1,0 +1,40 @@
+version = 1
+step_percent = 5.0
+hold_delay_seconds = 0.25
+repeat_interval_seconds = 0.10
+hold_limit_seconds = 5.0
+refresh_after_seconds = 15.0
+# Set refresh_after_seconds to 0 to favor faster keys over noticing changes
+# made with the monitor's own buttons while the controller is idle.
+verify_delay_seconds = 0.60
+ddc_timeout_seconds = 3.0
+# Keep this true for a fresh duplicate-identity check before every write.
+# False uses a direct bus write only when Linux reports the same monitor EDID
+# on the same connector and bus. Otherwise it falls back to EDID selection.
+# A new duplicate identity may go unnoticed until the next full scan.
+scan_before_each_write = true
+
+[popup]
+enabled = true
+duration_ms = 1800
+bottom_margin = 100
+all_monitors = false
+# Optional exact model reported by GTK, for example "LG ULTRAGEAR".
+# Ignored when all_monitors is true. Leave empty to let the compositor choose.
+monitor_model = ""
+
+[[monitors]]
+id = "desk-monitor"
+name = "Desk monitor"
+manufacturer = "DEL"
+model = "DELL P2417H"
+serial = "REPLACE_WITH_EDID_SERIAL"
+
+# Optional GeekMagic SmallTV-Ultra brightness device.
+# [[geekmagic]]
+# id = "geekmagic-ultra"
+# name = "GeekMagic Ultra"
+# Example address only. Replace it with your device's local IP address.
+# url = "http://192.0.2.10"
+# timeout_seconds = 1.5
+# restore_brightness = 50
