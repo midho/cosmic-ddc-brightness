@@ -1,97 +1,90 @@
 # COSMIC Display Brightness
 
-Change the hardware brightness of external displays from COSMIC shortcuts.
-`ddcutil` talks to DDC/CI monitors, while the optional GeekMagic backend uses
-the SmallTV-Ultra local HTTP interface. A user service handles key presses and
-can show a Wayland popup.
+Change an external monitor's brightness from a keyboard, a Vaydeer keypad or
+a desktop shortcut. An optional popup shows the current levels.
 
-## Early release scope
+## Features
 
-Version 0.1.0 was prepared for Pop!_OS 24.04 running COSMIC on Wayland. It
-controls external DDC/CI monitors with readable EDID identities and can also
-control one GeekMagic SmallTV-Ultra on the local network. COSMIC shortcuts,
-Input Remapper, and Solaar can send commands. This early release has not been
-checked across every Linux desktop, monitor, dock, or input device.
+- Control one monitor or several.
+- Tap for a single change. Hold to keep adjusting.
+- Keep saved monitors matched after reconnecting.
+- Toggle a GeekMagic SmallTV-Ultra off and back to its remembered brightness.
+- Put the popup on one screen or every connected screen.
+- Keep your settings when updating.
 
-Laptop panels do not use DDC/CI. Some docks, KVM switches, adapters, and
-monitor modes block DDC/CI even when the monitor supports it.
+## Screenshot
 
-## Why monitor identity matters
+<img src="docs/screenshots/brightness.png" alt="Brightness popup showing Main monitor at 65%, Side monitor at 40% and GeekMagic at 25%" width="440">
 
-An I2C bus number can change when you reboot, move a cable, or reconnect a
-monitor. The configuration records the EDID manufacturer, model, and serial
-number for each monitor. By default, the service checks for unique matches
-when it starts and before each write. Reads select the saved identity directly,
-then rescan if that read fails. The default write command also selects by identity.
-If another monitor takes the old bus number and still responds, it will not
-receive the brightness change.
+The real popup, captured with example names and brightness levels.
 
-At startup, detection stops if the serial number is missing or two monitors
-report the same identity. The default setting repeats that check before every
-write. A copied or generic serial cannot tell two monitors apart.
+## Before you start
 
-With the default setting, held-key writes get a fresh identity check on every
-step. Writes requested at the same time can share one scan. This costs time.
-The delay depends on your monitors and connection. Unplugging a monitor during
-a DDC transaction can interrupt that transaction.
+This early release was tested on Pop!_OS 24.04 with COSMIC on Wayland. You need
+Python 3.11 or newer and an external monitor that supports DDC/CI, the feature
+that lets your computer change the monitor's settings.
 
-## Install on Pop!_OS 24.04
+Laptop screens use a different control method. Some docks, adapters and KVM
+switches block DDC/CI. A GeekMagic SmallTV-Ultra uses your local network instead.
+See the [settings guide](docs/configuration.md) for its setup.
 
-Install the required packages:
+## Quick start on Pop!_OS 24.04
 
-```bash
-sudo apt install ddcutil python3-gi gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1
-```
+1. Open each monitor's own menu and turn on **DDC/CI**.
 
-Download the project:
+2. Open a terminal. Install the required packages:
 
-```bash
-git clone https://github.com/midho/cosmic-ddc-brightness.git
-cd cosmic-ddc-brightness
-```
+   ```bash
+   sudo apt install git python3 ddcutil python3-gi gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1
+   ```
 
-Make sure DDC/CI is enabled in each monitor's own menu. Then run:
+3. Download and install the program:
 
-```bash
-./install.sh
-```
+   ```bash
+   git clone https://github.com/midho/cosmic-ddc-brightness.git
+   cd cosmic-ddc-brightness
+   ./install.sh
+   ```
 
-The installer writes to your user folders. On a first install, it detects
-monitors, saves a configuration, and enables the user service. It does not run
-`sudo`, edit desktop shortcuts, or overwrite a configuration you already have.
-If `XDG_DATA_HOME` or `XDG_CONFIG_HOME` points somewhere else during
-installation, the launcher records those paths. The user service then uses the
-same files even if it does not inherit those environment variables. For a
-custom configuration folder, the installer puts the service file there and in
-`~/.config/systemd/user`. This also works when the already-running service
-manager still uses the standard folder.
+   The installer finds your monitors, saves their details and starts the
+   background service. It keeps any settings file you already have.
 
-Run the health check:
+4. Check the setup and show the popup:
 
-```bash
-cosmic-ddc-brightness doctor
-```
+   ```bash
+   ~/.local/bin/cosmic-ddc-brightness doctor
+   ~/.local/bin/cosmic-ddc-brightness show
+   ```
 
-For a first setup, `configure` detects connected DDC/CI monitors and writes
-their identities to the configuration. It will stop if that file already
-exists. Read its message before continuing. `configure --force` replaces the
-whole file, including custom settings and any GeekMagic entry, so make a copy
-before using it.
+   `doctor` reports problems with the setup. `show` displays the current
+   brightness without changing it.
 
-To add a monitor later, connect it and check its EDID identity with
-`ddcutil detect`. Add a `[[monitors]]` entry to `config.toml` with its
-manufacturer, model, serial, and a unique ID. Make a copy of the file before
-editing, then restart the service. A new monitor is not added to the saved
-list automatically.
+5. Add your keyboard shortcuts using the commands below.
 
-If first-time configuration was skipped or could not find a monitor:
+## Choose your keys
 
-```bash
-cosmic-ddc-brightness configure
-systemctl --user enable --now cosmic-ddc-brightness.service
-```
+Open **Settings → Keyboard → Keyboard shortcuts → Custom** in COSMIC. Add a
+custom shortcut for each action you want, paste its command and choose a key
+combination that is free.
+
+| Action | Command |
+|---|---|
+| Lower brightness | `cosmic-ddc-brightness down` |
+| Raise brightness | `cosmic-ddc-brightness up` |
+| Select the next brightness target | `cosmic-ddc-brightness cycle-monitor` |
+| Show the current levels | `cosmic-ddc-brightness show` |
+
+The service starts with all configured displays selected. The target command
+then cycles through each display and returns to all displays.
+
+For held keys, follow the [Solaar guide](docs/integrations/solaar.md) or the
+[Input Remapper and Vaydeer guide](docs/integrations/input-remapper.md). The
+[COSMIC guide](docs/integrations/cosmic.md) also explains what to do if a
+shortcut cannot find the command.
 
 ## Commands
+
+Run these in a terminal, or bind them to keys:
 
 ```text
 cosmic-ddc-brightness up
@@ -107,114 +100,50 @@ cosmic-ddc-brightness toggle-geekmagic
 ```
 
 `up` and `down` make one change. The `press-*` and `release-*` commands handle
-held keys. `cycle-monitor` moves from all displays through the configured
-devices in order. A newly started service selects all displays.
-`toggle-geekmagic` turns the configured GeekMagic display off at 0% and restores
-its last nonzero brightness when pressed again.
+held keys. `stop` stops a held-key repeat.
 
-For GeekMagic, 0% is reserved for that explicit off/on toggle. Ordinary
-brightness changes stop at 1%. Increasing from 1% moves to 5%, then continues
-in the configured steps. Brightness commands leave an off GeekMagic display
-off. Opposite brightness commands received together act as one target-cycle
-chord and do not change brightness.
+`toggle-geekmagic` turns the configured GeekMagic display off and restores
+its last nonzero brightness when pressed again. Normal brightness changes
+leave an off GeekMagic display off. See the [GeekMagic settings](docs/configuration.md#geekmagic-key-behavior)
+for the remaining device-specific behavior.
 
 ## Configuration
 
-The default file is:
+Your settings file is:
 
 ```text
 ~/.config/cosmic-ddc-brightness/config.toml
 ```
 
-Use `config.example.toml` as a reference. These settings are worth checking:
+The [settings guide](docs/configuration.md) explains every option, monitor
+matching, the faster write mode and GeekMagic setup. Use
+[config.example.toml](config.example.toml) as a reference.
 
-- `step_percent`: brightness change per step. It is scaled to each monitor's
-  VCP maximum, so five percent is still five percent when the maximum is 254.
-  A nonzero step always moves by at least one raw VCP unit unless the monitor
-  is already at the requested limit.
-- A saved monitor that is unplugged shows as unavailable. When Linux provides
-  complete connection records, repeated key presses do not rescan it until an
-  output changes. The service redetects saved monitor identities at startup
-  and when a later command needs a fresh match. A reconnected configured
-  monitor uses its saved entry. A new monitor needs its own configuration
-  entry.
-- The popup percentage follows completed writes, then loses its approximation
-  mark when the monitor confirms the value. Queued targets do not move the bar
-  ahead of the hardware.
-- `scan_before_each_write`: the default is `true`. The service checks for
-  missing or duplicate monitor identities before each write. Set it to `false`
-  only if those scans make held keys too slow. On Linux systems with usable
-  connector identity files, the service checks the monitor's EDID, connection
-  state, and bus path immediately before direct bus reads and writes. If it
-  cannot set up that check, it falls back to slower EDID-selected commands. A changed
-  identity or bus blocks the direct write and triggers fresh detection. This
-  avoids writing to a different monitor that takes the old bus in the tested
-  cases, but it cannot make a hotplug race impossible. A newly connected
-  monitor with the same EDID identity may also go unnoticed until the next
-  full scan. The startup scan rejects duplicates it finds, and `doctor` warns
-  when this faster setting is in use.
-- Held keys update the requested brightness at the configured repeat rate.
-  Each monitor writes only its latest target, so slow writes do not form a
-  separate queue for every key repeat. A write already running when the key
-  is released may still finish afterward.
-- `refresh_after_seconds`: read an idle monitor before applying a new change.
-  If you used the monitor's own buttons, the next step starts from the new
-  reading. Key presses received during that read are added together and applied
-  once. A shorter interval catches outside changes sooner but makes the first
-  keypress after a pause slower. A longer interval responds sooner, but a
-  monitor-button change may not be noticed until the next read. Set it to `0`
-  to skip automatic idle rereads and use the last confirmed level, like a
-  typical brightness key. Startup, an explicit `show`, and error recovery
-  still read the monitor. With `0`, a change made with the monitor's own
-  buttons can make the next step jump from the old saved level. The popup
-  marks its target with `≈` until the monitor confirms it.
-- `popup.monitor_model`: optional exact GTK monitor model for popup placement.
-  Leave it empty to let COSMIC choose the display. It is ignored when
-  `popup.all_monitors` is `true`.
-- `popup.all_monitors`: show an identical popup on every connected monitor.
-  The default is `false`.
-- `[[monitors]]`: stable EDID identity and a friendly display name.
-- `[[geekmagic]]`: friendly name and local HTTP address for an optional
-  GeekMagic SmallTV-Ultra. The address is checked against `/v.json` before
-  every read and write.
+- Change `step_percent` to adjust the amount per key press.
+- Set `all_monitors = true` in the `[popup]` table to show it on every screen.
+- Add a new monitor to the settings file before using it. Saved monitors are
+  found again after reconnecting, but new monitors are not added automatically.
 
-Each configured identity must match one connected monitor. Missing serials or
-ambiguous matches found at startup stop control. With the default write scan,
-they also stop later changes.
-
-Your configuration may contain monitor serial numbers. Keep it private. Git
-ignores `config.toml` in this repository.
-
-Example GeekMagic entry:
-
-```toml
-[[geekmagic]]
-id = "geekmagic-ultra"
-name = "GeekMagic Ultra"
-url = "http://192.0.2.10" # Example only. Replace with your GeekMagic address.
-timeout_seconds = 1.5
-restore_brightness = 50
-```
-
-The GeekMagic address should be stable, for example through a router DHCP
-reservation. The display's web interface has no visible authentication, so
-keep it on a trusted local network.
-
-After a configuration change:
+After editing the file, restart the service:
 
 ```bash
 systemctl --user restart cosmic-ddc-brightness.service
 ```
 
-## Connect keyboard controls
-
-- [COSMIC shortcuts](docs/integrations/cosmic.md)
-- [Input Remapper and Vaydeer](docs/integrations/input-remapper.md)
-- [Solaar press and release rules](docs/integrations/solaar.md)
-
-The installer does not edit those applications' configuration files.
+Keep this file private. It can contain monitor serial numbers.
 
 ## Troubleshooting
+
+- **No monitor found:** enable DDC/CI in the monitor menu, then try a direct
+  cable connection instead of a dock or adapter.
+- **Permission error:** check that `i2c-dev` is loaded and your user can access
+  the monitor's `/dev/i2c-*` device.
+- **Held keys feel slow:** read the [speed and identity settings](docs/configuration.md#configuration)
+  before changing the safety checks.
+- **GeekMagic does not respond:** check its power, network connection and
+  configured address. Its local address should stay the same.
+
+Run these checks if the problem remains:
 
 ```bash
 cosmic-ddc-brightness doctor
@@ -223,39 +152,29 @@ journalctl --user -u cosmic-ddc-brightness.service -n 50 --no-pager
 ddcutil environment
 ```
 
-If no monitor is found:
-
-- Enable DDC/CI in the monitor menu.
-- Confirm the `i2c-dev` kernel module is loaded.
-- Confirm your user can read and write the monitor's `/dev/i2c-*` device.
-- Try a direct connection if a dock, KVM, or adapter is in the path.
-
-The popup exits when its display timer ends. The next action creates a fresh
-Wayland surface, which helps after a display or compositor change. Popup writes
-have a short deadline. An oversized update is dropped, and a popup that stops
-reading cannot hold up brightness control. Popup shutdown also has a deadline,
-so a slow child-process watcher cannot hold up service shutdown.
-
 ## Update and remove
 
-Run `./install.sh` again to update program files. Your configuration is kept.
+Open a terminal in the project folder to download an update and install it:
 
-Remove the program and service while keeping the configuration:
+```bash
+git pull --ff-only
+./install.sh
+```
+
+Your settings are kept. To remove the program and service while keeping them:
 
 ```bash
 ./uninstall.sh
 ```
 
-The uninstaller removes the installed program files and their Python cache
-files. It keeps your configuration and unrelated files in the same directory.
-It also keeps a small local record of the configuration path, so a later
-`--purge` can find a custom configuration without the old XDG environment.
-
-Also remove the configuration:
+To remove the settings too:
 
 ```bash
 ./uninstall.sh --purge
 ```
+
+The uninstaller keeps unrelated files. The [settings guide](docs/configuration.md#installation-details)
+explains custom installation folders and saved path records.
 
 ## Development
 
